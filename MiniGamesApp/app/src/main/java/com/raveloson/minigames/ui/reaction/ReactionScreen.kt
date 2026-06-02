@@ -134,10 +134,9 @@ fun ReactionScreen(onBackClick: () -> Unit) {
     val directionText = if (direction == TimerDirection.Up) "+" else "-"
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp),
+        modifier = Modifier.fillMaxSize()
+            .background(Color(0xFFAAFFAF))
+            .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Titre en haut (sans trop de padding)
