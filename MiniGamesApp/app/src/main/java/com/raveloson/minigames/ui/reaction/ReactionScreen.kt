@@ -1,3 +1,4 @@
+
 package com.raveloson.minigames.ui.reaction
 
 import android.annotation.SuppressLint
@@ -16,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,47 +27,116 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import kotlin.math.abs
+import kotlin.random.Random
 
-private fun randomTargetTime(): Long {
-    return (1000L..7000L).random()
-}
+private enum class TimerDirection { Up, Down }
 
-enum class GamePhase {
-    Ready,
-    Running,
-    Result
+private data class RoundConfig(
+    val targetTimeMs: Long,
+    val startTimerMs: Long,
+    val speedMultiplier: Float,
+    val direction: TimerDirection
+)
+
+private fun randomDirection(): TimerDirection =
+    listOf(TimerDirection.Up, TimerDirection.Down).random()
+
+private fun randomSpeedMultiplier(): Float =
+    listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f).random()
+
+private fun randomRoundConfig(): RoundConfig {
+    val direction = randomDirection()
+    val speed = randomSpeedMultiplier()
+
+    // Cible dans une plage lisible
+    val target = Random.nextLong(1000L, 7001L)
+
+    // Cohérence demandée :
+    // Up   -> start < target
+    // Down -> start > target
+    val start = when (direction) {
+        TimerDirection.Up -> {
+            // Au moins 100 ms d'écart pour éviter start == target
+            val maxStart = (target - 100L).coerceAtLeast(0L)
+            if (maxStart == 0L) 0L else Random.nextLong(0L, maxStart + 1L)
+        }
+        TimerDirection.Down -> {
+            val minStart = target + 100L
+            val maxStart = 9000L
+            if (minStart >= maxStart) minStart else Random.nextLong(minStart, maxStart + 1L)
+        }
+    }
+
+    return RoundConfig(
+        targetTimeMs = target,
+        startTimerMs = start,
+        speedMultiplier = speed,
+        direction = direction
+    )
 }
 
 @SuppressLint("DefaultLocale")
 @Composable
 fun ReactionScreen(onBackClick: () -> Unit) {
-    var phase by remember { mutableStateOf(GamePhase.Ready) }
-    var targetTimeMs by remember { mutableLongStateOf(randomTargetTime()) }
-    var nextTargetTimeMs by remember { mutableLongStateOf(randomTargetTime()) }
+    // Manche active
+    var targetTimeMs by remember { mutableLongStateOf(0L) }
+    var startTimerMs by remember { mutableLongStateOf(0L) }
+    var speedMultiplier by remember { mutableFloatStateOf(1f) }
+    var direction by remember { mutableStateOf(TimerDirection.Up) }
+
+    // Timer courant (toujours initialisé via startTimerMs)
+    var currentTimerMs by remember { mutableLongStateOf(0L) }
+
     var isRunning by remember { mutableStateOf(false) }
-    var elapsedTimeMs by remember { mutableLongStateOf(0L) }
     var showResult by remember { mutableStateOf(false) }
 
-    val differenceMs = kotlin.math.abs(elapsedTimeMs - targetTimeMs)
-    val feedback = when {
-        differenceMs < 100 -> "Excellent !"
-        differenceMs < 300 -> "Très bien !"
-        differenceMs < 600 -> "Pas mal !"
-        else -> "Continue à t'entraîner !"
+    // Init 1ère manche
+    LaunchedEffect(Unit) {
+        val first = randomRoundConfig()
+        targetTimeMs = first.targetTimeMs
+        startTimerMs = first.startTimerMs
+        speedMultiplier = first.speedMultiplier
+        direction = first.direction
+        currentTimerMs = first.startTimerMs
     }
 
-    LaunchedEffect(isRunning) {
+    fun prepareNewRound() {
+        val next = randomRoundConfig()
+        targetTimeMs = next.targetTimeMs
+        startTimerMs = next.startTimerMs
+        speedMultiplier = next.speedMultiplier
+        direction = next.direction
+        currentTimerMs = next.startTimerMs
+        showResult = false
+    }
+
+    LaunchedEffect(isRunning, direction, speedMultiplier) {
         if (isRunning) {
             while (isRunning) {
                 delay(16L)
-                elapsedTimeMs += 16L
+                val step = (16f * speedMultiplier).toLong().coerceAtLeast(1L)
+                currentTimerMs = when (direction) {
+                    TimerDirection.Up -> currentTimerMs + step
+                    TimerDirection.Down -> (currentTimerMs - step).coerceAtLeast(0L)
+                }
             }
         }
     }
 
-    val currentTime = String.format("%.3f s", elapsedTimeMs / 1000f)
-    val targetTime = String.format("%.3f s", targetTimeMs / 1000f)
-    val differenceText = String.format("%.3f s", differenceMs / 1000f)
+    val differenceMs = abs(currentTimerMs - targetTimeMs)
+    val feedback = when {
+        differenceMs < 100L -> "Excellent !"
+        differenceMs < 300L -> "Tres bien !"
+        differenceMs < 600L -> "Pas mal !"
+        else -> "Continue a t'entrainer !"
+    }
+
+    val targetText = String.format("%.3f s", targetTimeMs / 1000f)
+    val currentText = String.format("%.3f s", currentTimerMs / 1000f)
+    val diffText = String.format("%.3f s", differenceMs / 1000f)
+    val speedText = String.format("x%.2f", speedMultiplier)
+    val directionText = if (direction == TimerDirection.Up) "Croissant (Up)" else "Decroissant (Down)"
 
     Column(
         modifier = Modifier
@@ -78,7 +149,7 @@ fun ReactionScreen(onBackClick: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Mini-jeu de réaction",
+                text = "Mini-jeu de reaction",
                 fontSize = 24.sp
             )
 
@@ -95,31 +166,33 @@ fun ReactionScreen(onBackClick: () -> Unit) {
                     Text(text = "Temps cible")
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = targetTime,
+                        text = targetText,
                         fontSize = 32.sp
                     )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(text = "Vitesse: $speedText")
+                    Text(text = "Sens: $directionText")
 
                     Spacer(modifier = Modifier.height(24.dp))
 
                     Text(text = "Votre temps")
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = currentTime,
+                        text = currentText,
                         fontSize = 32.sp
                     )
 
                     if (showResult) {
                         Spacer(modifier = Modifier.height(24.dp))
-
-                        Text(text = "Écart")
+                        Text(text = "Ecart")
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = differenceText,
+                            text = diffText,
                             fontSize = 24.sp
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
-
                         Text(text = feedback)
                     }
                 }
@@ -132,21 +205,14 @@ fun ReactionScreen(onBackClick: () -> Unit) {
         ) {
             Button(
                 onClick = {
-                    when(phase) {
-                        GamePhase.Ready -> {
-                            elapsedTimeMs = 0L
-                            showResult = false
-                            isRunning = true
-                            phase = GamePhase.Running
+                    if (!isRunning) {
+                        // Si on vient d'un resultat, on prepare une nouvelle manche complete
+                        if (showResult) {
+                            prepareNewRound()
                         }
-                        GamePhase.Result -> {
-                            targetTimeMs = randomTargetTime()
-                            elapsedTimeMs = 0L
-                            showResult = false
-                            isRunning = true
-                            phase = GamePhase.Running
-                        }
-                        GamePhase.Running -> Unit
+                        // Au lancement, on repart de la valeur de depart de la manche
+                        currentTimerMs = startTimerMs
+                        isRunning = true
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
@@ -158,15 +224,14 @@ fun ReactionScreen(onBackClick: () -> Unit) {
 
             Button(
                 onClick = {
-                    if (phase == GamePhase.Running) {
+                    if (isRunning) {
                         isRunning = false
                         showResult = true
-                        phase = GamePhase.Result
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Arrêter")
+                Text("Arreter")
             }
 
             Spacer(modifier = Modifier.height(12.dp))
