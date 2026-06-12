@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -16,28 +15,34 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
-class HomeScreen {
-}
-
 @Composable
-fun HomeScreen(onPlayClick: () -> Unit) {
+fun HomeScreen(
+    onReactionClick: () -> Unit,
+    onWordGameClick: () -> Unit
+) {
     Column(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
             .background(Color(0xFFAAFFAF))
-        .padding(20.dp),
+            .padding(20.dp),
         verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = "Mini Games",
             style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.primary,
+            color = MaterialTheme.colorScheme.primary
         )
         Spacer(modifier = Modifier.height(24.dp))
         MiniGameCard(
             title = "Timer Game",
             description = "Teste ta vitesse de réaction et ton sens du timing.",
-            onClick = onPlayClick,
+            onClick = onReactionClick
+        )
+        MiniGameCard(
+            title = "Mot caché",
+            description = "Trouve le mot avant de manquer d'essais.",
+            onClick = onWordGameClick
         )
     }
 }

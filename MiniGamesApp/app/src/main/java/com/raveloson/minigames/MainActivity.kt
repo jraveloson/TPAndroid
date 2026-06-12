@@ -4,22 +4,17 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.raveloson.minigames.ui.home.HomeScreen
-import com.raveloson.minigames.ui.theme.MiniGamesAppTheme
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.remember
+import com.raveloson.minigames.ui.wordgame.WordGameScreen
 import com.raveloson.minigames.ui.reaction.ReactionScreen
+import com.raveloson.minigames.ui.theme.MiniGamesAppTheme
+import androidx.compose.material3.Text
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,13 +46,19 @@ fun GreetingPreview() {
 
 @Composable
 fun MiniGamesApp() {
-    var isPlaying by remember {
-        mutableStateOf(false)
-    }
-    if (isPlaying) {
-        ReactionScreen(onBackClick = { isPlaying = false })
-    }
-    else {
-        HomeScreen(onPlayClick = { isPlaying = true })
+    val navController = rememberNavController()
+    NavHost(navController = navController, startDestination = Home) {
+        composable<Home> {
+            HomeScreen(
+                onReactionClick = { navController.navigate(Reaction) },
+                onWordGameClick = { navController.navigate(WordGame) }
+            )
+        }
+        composable<Reaction> {
+            ReactionScreen(onBackClick = { navController.popBackStack() })
+        }
+        composable<WordGame> {
+            WordGameScreen(onBackClick = { navController.popBackStack() })
+        }
     }
 }
